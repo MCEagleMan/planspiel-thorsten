@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a20">
+  <title>Planspiel | Kommunikationskarte</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/d3.v7.min.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Kommunikationskarte Startseite">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>Planspiel</strong><small>Kommunikationskarte</small></span>
+      </a>
+      <div class="topbar-center"><span class="live-dot"></span><span id="save-status">Lokal gespeichert</span><span class="topbar-divider"></span><span id="message-count">0 Nachrichten</span></div>
+      <div class="toolbar-actions">
+        <button class="icon-button" id="undo-button" title="Rückgängig (Strg+Z)" aria-label="Rückgängig" disabled>↶</button>
+        <button class="icon-button" id="redo-button" title="Wiederholen (Strg+Y)" aria-label="Wiederholen" disabled>↷</button>
+        <span class="toolbar-divider"></span>
+        <button class="button button-quiet" id="import-button"><span aria-hidden="true">↑</span> Import</button>
+        <button class="button button-quiet" id="export-button"><span aria-hidden="true">↓</span> Export</button>
+        <button class="button button-primary" id="add-message-button"><span aria-hidden="true">＋</span> Nachricht</button>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar" aria-label="Filter und Parteien">
+        <div class="sidebar-heading"><div><span class="eyebrow">ÜBERSICHT</span><h1>Kommunikation</h1></div><button id="add-party-button" class="small-add" title="Partei hinzufügen" aria-label="Partei hinzufügen">＋</button></div>
+        <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Nachrichten durchsuchen" autocomplete="off"><kbd>⌘ K</kbd></label>
+        <section class="filter-section">
+          <div class="section-title"><h2>Kategorien</h2><button class="text-button" id="reset-filters">Zurücksetzen</button></div>
+          <label class="filter-row"><input type="checkbox" value="rot" checked><span class="category-dot red"></span><span>Kritisch</span><span class="filter-count" id="count-rot">0</span></label>
+          <label class="filter-row"><input type="checkbox" value="gruen" checked><span class="category-dot green"></span><span>Positiv</span><span class="filter-count" id="count-gruen">0</span></label>
+          <label class="filter-row"><input type="checkbox" value="schwarz" checked><span class="category-dot blue"></span><span>Neutral</span><span class="filter-count" id="count-schwarz">0</span></label>
+        </section>
+        <section class="filter-section party-filter-section">
+          <div class="section-title"><h2>Parteien</h2><span class="muted-label" id="party-count">0</span></div>
+          <div class="party-list" id="party-list"></div>
+        </section>
+        <section class="date-filters">
+          <div class="section-title"><h2>Zeitraum</h2></div>
+          <label>Von<input id="date-from" type="datetime-local"></label>
+          <label>Bis<input id="date-to" type="datetime-local"></label>
+        </section>
+        <div class="sidebar-footer"><span class="keyboard-hint"><kbd>Space</kbd> Abspielen</span><span class="local-badge"><span class="live-dot"></span> Nur lokal</span></div>
+      </aside>
+
+      <section class="main-column" aria-label="Kommunikationsgraph">
+        <div class="graph-toolbar">
+          <div class="view-title"><span class="eyebrow">NETZWERKANSICHT</span><h2>Nachrichtenfluss <span class="view-live" aria-hidden="true"></span></h2></div>
+          <div class="graph-actions">
+            <button class="button button-quiet" id="statistics-button" aria-pressed="false"><span aria-hidden="true">▥</span> Statistik</button>
+            <button class="button button-quiet" id="png-button"><span aria-hidden="true">▧</span> PNG</button>
+            <button class="button button-quiet" id="print-button"><span aria-hidden="true">⎙</span> Drucken</button>
+            <span class="toolbar-divider"></span>
+            <button class="icon-button" id="zoom-out" title="Verkleinern" aria-label="Verkleinern">−</button>
+            <button class="icon-button" id="zoom-in" title="Vergrößern" aria-label="Vergrößern">＋</button>
+            <button class="button button-quiet" id="fit-button">Auf alles zoomen</button>
+          </div>
+        </div>
+        <div class="graph-wrap" id="graph-wrap">
+          <svg id="graph" role="img" aria-label="Interaktiver Graph der Parteien und Nachrichten">
+            <defs>
+              <pattern id="dot-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#273841" opacity=".55"/></pattern>
+              <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#000" flood-opacity=".32"/></filter>
+              <marker id="arrow-red" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5" fill="#8C023F"/></marker>
+              <marker id="arrow-green" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5" fill="#468C73"/></marker>
+              <marker id="arrow-black" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5" fill="#013154"/></marker>
+            </defs>
+            <rect class="canvas-bg" width="100%" height="100%" fill="url(#dot-grid)"/>
+            <g class="zoom-layer"><g class="links-layer"></g><g class="nodes-layer"></g></g>
+          </svg>
+          <div class="graph-empty" id="graph-empty" hidden><span class="empty-glyph">↗</span><strong>Dein Kommunikationsnetz beginnt hier</strong><span>Erstelle eine Nachricht, um den Austausch sichtbar zu machen.</span><button class="button button-primary" id="empty-add-message">＋ Erste Nachricht erstellen</button></div>
+          <div class="graph-legend"><span><i class="legend-line red"></i>Kritisch</span><span><i class="legend-line green"></i>Positiv</span><span><i class="legend-line blue"></i>Neutral</span></div>
+          <div class="graph-hint">Ziehen zum Verschieben <span>·</span> Scrollen zum Zoomen</div>
+        </div>
+        <section class="stats-panel" id="stats-panel" hidden>
+          <div class="stats-heading"><div><span class="eyebrow">AUSWERTUNG</span><h2>Kommunikationsbilanz</h2></div><span class="stats-total" id="stats-total">0 Nachrichten</span></div>
+          <div class="stats-grid"><div class="stat-block"><span class="stat-label">AKTIVSTE PARTEI</span><strong id="top-party">–</strong><span id="top-party-count" class="stat-sub">0 Nachrichten</span></div><div class="stat-block"><span class="stat-label">KATEGORIEN</span><div id="category-chart" class="bar-chart"></div></div><div class="stat-block"><span class="stat-label">NACHRICHTEN PRO PARTEI</span><div id="party-chart" class="party-chart"></div></div><div class="stat-block"><span class="stat-label">ZEITLICHER VERLAUF</span><div id="time-chart" class="time-chart"></div></div></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="timeline" aria-label="Zeitreise-Steuerung">
+      <div class="timeline-label"><span class="eyebrow">ZEITREISE</span><strong id="timeline-date">Kein Zeitraum</strong></div>
+      <div class="playback-controls"><button class="icon-button" id="step-back" title="Eine Minute zurück" aria-label="Eine Minute zurück">↶</button><button class="play-button" id="play-button" title="Abspielen" aria-label="Abspielen">▶</button><button class="icon-button" id="stop-button" title="Stop" aria-label="Stop">■</button><button class="icon-button" id="step-forward" title="Eine Minute vor" aria-label="Eine Minute vor">↷</button></div>
+      <div class="time-slider-wrap"><div class="time-labels"><span>Beginn</span><span>Ende</span></div><input id="time-slider" type="range" min="0" max="100" value="100" aria-label="Zeitpunkt der Simulation"><div class="slider-ticks" id="slider-ticks"></div></div>
+      <label class="speed-control"><span class="eyebrow">TEMPO</span><select id="speed-select" aria-label="Wiedergabegeschwindigkeit"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="5">5×</option></select></label>
+    </footer>
+  </div>
+
+  <dialog id="message-dialog" class="edit-dialog">
+    <form id="message-form" method="dialog">
+      <div class="dialog-heading"><div><span class="eyebrow" id="message-dialog-kicker">NACHRICHT</span><h2 id="message-dialog-title">Neue Nachricht</h2></div><button type="button" class="icon-button dialog-close" data-close="message-dialog" aria-label="Dialog schließen">×</button></div>
+      <input id="message-id" type="hidden">
+      <div class="form-grid two-col"><label>Sender<select id="message-from" required></select></label><label>Empfänger<select id="message-to" required></select></label></div>
+      <div class="form-grid two-col"><label>Kategorie<select id="message-category"><option value="rot">Rot · Kritisch</option><option value="gruen">Grün · Positiv</option><option value="schwarz">Schwarz · Neutral</option></select></label><label>Zeitstempel<input id="message-timestamp" type="datetime-local" required></label></div>
+      <label>Nachricht<textarea id="message-text" rows="3" required placeholder="Was wurde kommuniziert?"></textarea></label>
+      <label>Notizen <span class="optional">Optional</span><textarea id="message-notes" rows="2" placeholder="Hintergrund oder Beobachtung"></textarea></label>
+      <div class="dialog-footer"><button type="button" class="button button-danger-text" id="delete-message-button" hidden>Nachricht löschen</button><div class="dialog-footer-right"><button type="button" class="button button-quiet" data-close="message-dialog">Abbrechen</button><button class="button button-primary" type="submit">Speichern</button></div></div>
+    </form>
+  </dialog>
+
+  <dialog id="party-dialog" class="edit-dialog">
+    <form id="party-form" method="dialog">
+      <div class="dialog-heading"><div><span class="eyebrow">PARTEIEN</span><h2 id="party-dialog-title">Partei hinzufügen</h2></div><button type="button" class="icon-button dialog-close" data-close="party-dialog" aria-label="Dialog schließen">×</button></div>
+      <input id="party-id" type="hidden">
+      <label>Name<input id="party-name" maxlength="60" required placeholder="Name der Partei"></label>
+      <label>Beschreibung <span class="optional">Optional</span><textarea id="party-description" rows="3" placeholder="Rolle oder Kontext"></textarea></label>
+      <div class="dialog-footer"><button type="button" class="button button-danger-text" id="delete-party-button" hidden>Partei löschen</button><div class="dialog-footer-right"><button type="button" class="button button-quiet" data-close="party-dialog">Abbrechen</button><button class="button button-primary" type="submit">Speichern</button></div></div>
+    </form>
+  </dialog>
+
+  <aside class="detail-panel" id="detail-panel" aria-label="Nachrichtendetails" aria-hidden="true">
+    <div class="detail-heading"><div><span class="eyebrow">NACHRICHTENDETAILS</span><h2>Kommunikation</h2></div><button class="icon-button" id="close-detail" aria-label="Detailansicht schließen">×</button></div>
+    <div id="detail-content"></div>
+  </aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
