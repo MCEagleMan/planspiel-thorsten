@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "savedAt": null,
+  "parties": [
+    { "id": "party-1", "name": "Hausleitung", "description": "", "x": null, "y": null },
+    { "id": "party-2", "name": "Teamer", "description": "", "x": null, "y": null },
+    { "id": "party-3", "name": "Spaziergänger", "description": "", "x": null, "y": null },
+    { "id": "party-4", "name": "Jugendleiter", "description": "", "x": null, "y": null },
+    { "id": "party-5", "name": "Pärchen", "description": "", "x": null, "y": null },
+    { "id": "party-6", "name": "Im Haus geblieben", "description": "", "x": null, "y": null }
+  ],
+  "messages": []
+}
